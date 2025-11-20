@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Order Test</title>
+    <style>
+        body { font-family: Arial; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
+        button { padding: 12px 24px; margin: 5px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; }
+        button:hover { background: #45a049; }
+        #status { background: #e8f5e9; padding: 15px; margin: 15px 0; border-radius: 5px; border-left: 4px solid #4CAF50; }
+        .update { padding: 10px; margin: 5px 0; border-radius: 5px; background: #f9f9f9; border-left: 3px solid #2196F3; animation: slideIn 0.3s; }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+        .pending { border-left-color: #FF9800; }
+        .routing { border-left-color: #2196F3; }
+        .building { border-left-color: #9C27B0; }
+        .submitted { border-left-color: #00BCD4; }
+        .confirmed { border-left-color: #4CAF50; background: #e8f5e9; }
+        .failed { border-left-color: #F44336; background: #ffebee; }
+        pre { background: #263238; color: #aed581; padding: 10px; border-radius: 5px; overflow-x: auto; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 WebSocket Order Test</h1>
+        <p>Submit orders and watch real-time status updates via WebSocket</p>
+        
+        <div>
+            <button onclick="submitOrder()">Submit Order + Connect WebSocket</button>
+            <button onclick="submitMultiple()">Submit 3 Orders Simultaneously</button>
+            <button onclick="clearLog()">Clear Log</button>
+        </div>
+
+        <div id="status"></div>
+        <div id="updates"></div>
+    </div>
+
+    <script>
+        let orderCounter = 0;
+
+        async function submitOrder() {
+            orderCounter++;
+            const statusDiv = document.getElementById('status');
+            const updatesDiv = document.getElementById('updates');
+            
+            statusDiv.innerHTML = `<strong>📤 Submitting Order #${orderCounter}...</strong>`;
+
+            try {
+                // Submit order via HTTP POST
+                const response = await fetch('http://localhost:3000/api/orders/execute', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        tokenIn: 'SOL',
+                        tokenOut: 'USDC',
+                        amountIn: (Math.random() * 2 + 0.5).toFixed(2),
+                        slippage: 0.01,
+                        walletAddress: `wallet-${Date.now()}`,
+                        orderType: 'market'
+                    })
+                });
+
+                const data = await response.json();
+                const shortId = data.orderId.substring(0, 8);
+                
+                statusDiv.innerHTML = `
+                    <strong>✅ Order #${orderCounter} Submitted</strong><br>
+                    <small>Order ID: ${data.orderId}</small><br>
+                    <small>WebSocket URL: ${data.wsUrl}</small>
+                `;
+
+                // Create section for this order's updates
+                const orderSection = document.createElement('div');
+                orderSection.id = `order-${data.orderId}`;
+                orderSection.innerHTML = `<h3>📊 Order #${orderCounter} (${shortId}...)</h3>`;
+                updatesDiv.insertBefore(orderSection, updatesDiv.firstChild);
+
+                // Connect WebSocket immediately
+                connectWebSocket(data.orderId, orderCounter);
+
+            } catch (error) {
+                statusDiv.innerHTML = `<strong style="color: red;">❌ Error: ${error.message}</strong>`;
+            }
+        }
+
+        function connectWebSocket(orderId, orderNum) {
+            const shortId = orderId.substring(0, 8);
+            const orderSection = document.getElementById(`order-${orderId}`);
+            
+            // Connect to WebSocket
+            const ws = new WebSocket(`ws://localhost:3000/api/orders/ws?orderId=${orderId}`);
+
+            ws.onopen = () => {
+                console.log(`✅ WebSocket connected for order ${shortId}`);
+                addUpdate(orderSection, 'info', '🔌 WebSocket Connected');
+            };
+
+            ws.onmessage = (event) => {
+                const message = JSON.parse(event.data);
+                console.log('WebSocket message:', message);
+
+                const emoji = {
+                    pending: '⏳',
+                    routing: '🔍',
+                    building: '🔨',
+                    submitted: '📤',
+                    confirmed: '✅',
+                    failed: '❌'
+                };
+
+                let details = '';
+                if (message.data) {
+                    if (message.data.selectedDex) {
+                        details += `<br><small>DEX: ${message.data.selectedDex.toUpperCase()}</small>`;
+                    }
+                    if (message.data.estimatedOutput) {
+                        details += `<br><small>Estimated: ${message.data.estimatedOutput.toFixed(6)} USDC</small>`;
+                    }
+                    if (message.data.txHash) {
+                        details += `<br><small>TxHash: ${message.data.txHash.substring(0, 20)}...</small>`;
+                    }
+                    if (message.data.actualOutput) {
+                        details += `<br><small>Output: ${message.data.actualOutput.toFixed(6)} USDC</small>`;
+                    }
+                    if (message.data.executionTime) {
+                        details += `<br><small>Time: ${message.data.executionTime}</small>`;
+                    }
+                    if (message.data.error) {
+                        details += `<br><small style="color: red;">Error: ${message.data.error}</small>`;
+                    }
+                }
+
+                const updateText = `${emoji[message.status] || '📌'} <strong>${message.status.toUpperCase()}</strong> - ${new Date(message.timestamp).toLocaleTimeString()}${details}`;
+                addUpdate(orderSection, message.status, updateText);
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                addUpdate(orderSection, 'failed', '❌ WebSocket Error');
+            };
+
+            ws.onclose = () => {
+                console.log(`WebSocket closed for order ${shortId}`);
+                addUpdate(orderSection, 'info', '🔴 WebSocket Closed');
+            };
+        }
+
+        function addUpdate(container, status, html) {
+            const updateDiv = document.createElement('div');
+            updateDiv.className = `update ${status}`;
+            updateDiv.innerHTML = html;
+            container.appendChild(updateDiv);
+        }
+
+        async function submitMultiple() {
+            for (let i = 0; i < 3; i++) {
+                await submitOrder();
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
+        }
+
+        function clearLog() {
+            document.getElementById('updates').innerHTML = '';
+            document.getElementById('status').innerHTML = '';
+            orderCounter = 0;
+        }
+    </script>
+</body>
+</html>

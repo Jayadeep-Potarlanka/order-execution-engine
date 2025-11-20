@@ -1,0 +1,268 @@
+{
+  "info": {
+    "name": "Order Execution Engine API",
+    "description": "Complete API collection for Solana DEX order execution engine with WebSocket support",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "orderId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": ["{{baseUrl}}"],
+          "path": ["health"]
+        },
+        "description": "Check if the server is running and healthy"
+      },
+      "response": [
+        {
+          "name": "Success Response",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"status\": \"healthy\",\n  \"timestamp\": \"2025-11-20T10:30:00.000Z\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Submit Market Order",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "// Save orderId to environment variable",
+              "if (pm.response.code === 200) {",
+              "    var jsonData = pm.response.json();",
+              "    pm.collectionVariables.set('orderId', jsonData.orderId);",
+              "    console.log('Order ID saved: ' + jsonData.orderId);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"tokenIn\": \"SOL\",\n  \"tokenOut\": \"USDC\",\n  \"amountIn\": 1.5,\n  \"slippage\": 0.01,\n  \"walletAddress\": \"test-wallet-123\",\n  \"orderType\": \"market\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/orders/execute",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "orders", "execute"]
+        },
+        "description": "Submit a new market order for execution. The orderId is automatically saved for use in subsequent requests."
+      },
+      "response": [
+        {
+          "name": "Success Response",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tokenIn\": \"SOL\",\n  \"tokenOut\": \"USDC\",\n  \"amountIn\": 1.5,\n  \"slippage\": 0.01,\n  \"walletAddress\": \"test-wallet-123\",\n  \"orderType\": \"market\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/execute",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders", "execute"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"orderId\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"status\": \"pending\",\n  \"message\": \"Order submitted successfully. Connect to WebSocket for live updates.\",\n  \"wsUrl\": \"ws://localhost:3000/api/orders/ws?orderId=550e8400-e29b-41d4-a716-446655440000\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Get Order Details",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/orders/{{orderId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "orders", "{{orderId}}"]
+        },
+        "description": "Retrieve details of a specific order by its ID. Use the orderId from the previous order submission."
+      },
+      "response": [
+        {
+          "name": "Success Response",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/550e8400-e29b-41d4-a716-446655440000",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders", "550e8400-e29b-41d4-a716-446655440000"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"order_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n  \"wallet_address\": \"test-wallet-123\",\n  \"token_in\": \"SOL\",\n  \"token_out\": \"USDC\",\n  \"amount_in\": \"1.5\",\n  \"slippage\": \"0.01\",\n  \"order_type\": \"market\",\n  \"status\": \"confirmed\",\n  \"selected_dex\": \"meteora\",\n  \"execution_price\": \"99.85\",\n  \"tx_hash\": \"5j7KxpqR3mNeyPtPqMEMfZm6BEjbFFJo656cE3xm3G3i...\",\n  \"created_at\": \"2025-11-20T10:30:00.000Z\",\n  \"updated_at\": \"2025-11-20T10:30:04.000Z\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Get Order History",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/orders/history/test-wallet-123",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "orders", "history", "test-wallet-123"]
+        },
+        "description": "Get order history for a specific wallet address. Returns up to 50 most recent orders."
+      },
+      "response": [
+        {
+          "name": "Success Response",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/history/test-wallet-123",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders", "history", "test-wallet-123"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "[\n  {\n    \"order_id\": \"550e8400-e29b-41d4-a716-446655440000\",\n    \"status\": \"confirmed\",\n    \"token_in\": \"SOL\",\n    \"token_out\": \"USDC\",\n    \"amount_in\": \"1.5\",\n    \"selected_dex\": \"meteora\",\n    \"execution_price\": \"99.85\",\n    \"tx_hash\": \"5j7KxpqR3mN...\",\n    \"created_at\": \"2025-11-20T10:30:00.000Z\"\n  },\n  {\n    \"order_id\": \"660e8400-e29b-41d4-a716-446655440001\",\n    \"status\": \"confirmed\",\n    \"token_in\": \"SOL\",\n    \"token_out\": \"USDC\",\n    \"amount_in\": \"2.0\",\n    \"selected_dex\": \"raydium\",\n    \"execution_price\": \"100.15\",\n    \"tx_hash\": \"6k8LyqrS4oP...\",\n    \"created_at\": \"2025-11-20T10:25:00.000Z\"\n  }\n]"
+        }
+      ]
+    },
+    {
+      "name": "Get Queue Metrics",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/queue/metrics",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "queue", "metrics"]
+        },
+        "description": "Get current queue statistics including waiting, active, completed, and failed orders."
+      },
+      "response": [
+        {
+          "name": "Success Response",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/queue/metrics",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "queue", "metrics"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": "{\n  \"waiting\": 2,\n  \"active\": 5,\n  \"completed\": 148,\n  \"failed\": 3\n}"
+        }
+      ]
+    },
+    {
+      "name": "WebSocket Connection (Instructions)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "ws://localhost:3000/api/orders/ws?orderId={{orderId}}",
+          "protocol": "ws",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "orders", "ws"],
+          "query": [
+            {
+              "key": "orderId",
+              "value": "{{orderId}}",
+              "description": "Order ID from previous submission"
+            }
+          ]
+        },
+        "description": "WebSocket endpoint for real-time order status updates.\n\n**How to test:**\n1. First, submit an order using 'Submit Market Order' endpoint\n2. Copy the orderId from the response\n3. In Postman, create a new WebSocket request\n4. Use URL: ws://localhost:3000/api/orders/ws?orderId={YOUR_ORDER_ID}\n5. Click 'Connect'\n6. You'll receive real-time updates:\n   - pending\n   - routing\n   - building\n   - submitted\n   - confirmed (or failed)\n\n**Message Format:**\n``````"
+      }
+    }
+  ]
+}
